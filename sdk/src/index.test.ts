@@ -1,5 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { u256ToB64Url, b64UrlToU256, quiltPatchId, walrusDataUrl, assertBlobId, WalrusDataSchema } from "./index.ts";
+import { blobIdToInt, blobIdFromInt } from "@mysten/walrus";
 import type { WalrusData } from "./index.ts";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,16 @@ describe("u256ToB64Url / b64UrlToU256", () => {
     expect(encoded).not.toContain("/");
     expect(encoded).not.toContain("=");
   });
+
+  test("matches @mysten/walrus blobIdFromInt", () => {
+    const value = 100823958982459129214775293723226273787816046204392402565982341370597827029082n;
+    expect(u256ToB64Url(value)).toBe(blobIdFromInt(value));
+  });
+
+  test("matches @mysten/walrus blobIdToInt", () => {
+    const blobId = "Wij2hvmUIKmYj4cqshL27GYjY8C6dEKlOtml8adW6N4";
+    expect(b64UrlToU256(blobId)).toBe(blobIdToInt(blobId).toString());
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -44,19 +55,22 @@ describe("u256ToB64Url / b64UrlToU256", () => {
 describe("quiltPatchId", () => {
   test("produces 37 bytes base64url encoded", () => {
     const id = quiltPatchId("0", 0, 0, 0);
-    // 37 bytes → ceil(37 * 4/3) = 50 base64 chars (minus padding stripped)
-    // base64url of 37 bytes = 50 chars with 1 padding byte removed = 49-50 chars
     const decoded = atob(id.replace(/-/g, "+").replace(/_/g, "/") + "==");
     expect(decoded.length).toBe(37);
   });
 
-  test("quilt_id is big-endian u256", () => {
-    // quiltId = 1 → BE bytes: [0x00, ..., 0x00, 0x01] (32 bytes)
-    const id = quiltPatchId("1", 0, 0, 0);
+  test("quilt_id bytes match blobIdFromInt output", () => {
+    const quiltU256 = "100823958982459129214775293723226273787816046204392402565982341370597827029082";
+    const id = quiltPatchId(quiltU256, 1, 1, 605);
     const raw = Uint8Array.from(atob(id.replace(/-/g, "+").replace(/_/g, "/") + "=="), (c) => c.charCodeAt(0));
-    expect(raw[0]).toBe(0);
-    expect(raw[30]).toBe(0);
-    expect(raw[31]).toBe(1);
+
+    // The first 32 bytes should match the raw bytes of blobIdFromInt
+    const expectedB64 = blobIdFromInt(BigInt(quiltU256));
+    let padded = expectedB64.replace(/-/g, "+").replace(/_/g, "/");
+    while (padded.length % 4) padded += "=";
+    const expectedBytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+
+    expect(raw.slice(0, 32)).toEqual(expectedBytes);
   });
 
   test("version is a single byte at offset 32", () => {
