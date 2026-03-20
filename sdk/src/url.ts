@@ -1,16 +1,29 @@
 // Copyright (c) Unconfirmed Labs, LLC
 // SPDX-License-Identifier: MIT
 
-import { blobIdToInt, blobIdFromInt } from "@mysten/walrus";
-import type { WalrusData } from "./types.ts";
+import { bcs } from "@mysten/sui/bcs";
+import { fromBase64, toBase64 } from "@mysten/sui/utils";
+import type { WalrusData } from "./types";
+
+const u256 = bcs.u256();
+
+function toBase64Url(bytes: Uint8Array): string {
+  return toBase64(bytes).replace(/=*$/, "").replaceAll("+", "-").replaceAll("/", "_");
+}
+
+function fromBase64Url(str: string): Uint8Array {
+  let b64 = str.replaceAll("-", "+").replaceAll("_", "/");
+  while (b64.length % 4) b64 += "=";
+  return fromBase64(b64);
+}
 
 /**
  * Converts a u256 decimal string to a base64url-encoded blob ID.
  * Used to convert on-chain WalrusData blob IDs to Walrus aggregator format.
  */
-export function u256ToB64Url(u256: string | bigint): string {
-  const value = typeof u256 === "string" ? BigInt(u256) : u256;
-  return blobIdFromInt(value);
+export function u256ToB64Url(u256Value: string | bigint): string {
+  const value = typeof u256Value === "string" ? BigInt(u256Value) : u256Value;
+  return toBase64Url(u256.serialize(value).toBytes());
 }
 
 /**
@@ -18,7 +31,8 @@ export function u256ToB64Url(u256: string | bigint): string {
  * Used to convert Walrus blob IDs to on-chain WalrusData format.
  */
 export function b64UrlToU256(blobId: string): string {
-  return blobIdToInt(blobId).toString();
+  const bytes = fromBase64Url(blobId);
+  return u256.parse(bytes).toString();
 }
 
 /**
@@ -28,32 +42,17 @@ export function b64UrlToU256(blobId: string): string {
  * All fields use little-endian (BCS encoding) to match Walrus SDK conventions.
  */
 export function quiltPatchId(quiltId: string, version: number, startIndex: number, endIndex: number): string {
-  // Decode the quilt ID base64url back to its raw 32 bytes
-  const quiltIdB64 = u256ToB64Url(quiltId);
-  let base64 = quiltIdB64.replace(/-/g, "+").replace(/_/g, "/");
-  while (base64.length % 4) base64 += "=";
-  const quiltIdBinary = atob(base64);
+  const quiltIdBytes = u256.serialize(BigInt(quiltId)).toBytes();
 
   const bytes = new Uint8Array(37);
-
-  // quilt_id: 32 bytes (raw blob ID bytes from Walrus SDK)
-  for (let i = 0; i < 32; i++) {
-    bytes[i] = quiltIdBinary.charCodeAt(i);
-  }
-
-  // version: 1 byte
+  bytes.set(quiltIdBytes, 0);
   bytes[32] = version;
-
-  // start_index: 2 bytes little-endian (BCS u16)
   bytes[33] = startIndex & 0xff;
   bytes[34] = (startIndex >> 8) & 0xff;
-
-  // end_index: 2 bytes little-endian (BCS u16)
   bytes[35] = endIndex & 0xff;
   bytes[36] = (endIndex >> 8) & 0xff;
 
-  const result = btoa(String.fromCharCode(...bytes));
-  return result.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return toBase64Url(bytes);
 }
 
 /** Extract the blob ID from a Blob WalrusData. Throws if it's a QuiltPatch. */

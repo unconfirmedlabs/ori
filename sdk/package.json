@@ -1,30 +1,38 @@
 {
-  "name": "@ori/sdk",
+  "name": "@unconfirmed/ori",
   "version": "0.1.0",
-  "description": "TypeScript types and URL helpers for the Ori Walrus data package.",
+  "description": "TypeScript types and URL helpers for the Ori Walrus data package on Sui.",
   "license": "MIT",
-  "module": "src/index.ts",
-  "types": "src/index.ts",
   "type": "module",
-  "sideEffects": false,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./types": "./src/types.ts",
-    "./schema": "./src/schema.ts",
-    "./url": "./src/url.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   },
   "files": [
-    "src",
-    "package.json"
+    "dist",
+    "README.md"
   ],
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "bun run build"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unconfirmedlabs/ori",
+    "directory": "sdk"
+  },
+  "keywords": ["sui", "walrus", "ori", "web3", "blockchain"],
   "peerDependencies": {
-    "typescript": "^5"
+    "@mysten/sui": "^2.4.0"
   },
-  "dependencies": {
-    "@mysten/walrus": "^1.0.1",
-    "zod": "^4.3.6"
+  "devDependencies": {
+    "typescript": "^5.7.0"
   }
 }
