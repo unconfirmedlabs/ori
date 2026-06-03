@@ -1,14 +1,31 @@
 module ori::walrus_data;
 
+use std::type_name::{TypeName, with_defining_ids};
 use sui::bcs;
 
 //=== Enums ===
 
+/// Confidentiality of a stored blob: cleartext, or encrypted with an access
+/// policy. Only applies to standalone blobs — a quilt patch is a slice of a
+/// shared quilt blob and can never be the direct product of an encryption.
+public enum Confidentiality has copy, drop, store {
+    /// The blob is stored in the clear.
+    Unencrypted,
+    /// The blob is AES-encrypted. `dek` is the AES data-encryption key sealed
+    /// via Seal (a small ciphertext stored on-chain — not the blob bytes).
+    /// `policy` is the decryption-policy witness type; a Seal `seal_approve`
+    /// compares it against the runtime witness's type. Decryption itself is
+    /// gated by that policy package, not by this library.
+    Encrypted { policy: TypeName, dek: vector<u8> },
+}
+
 /// Represents either a standalone Walrus blob or a patch within a quilt.
 public enum WalrusData has copy, drop, store {
-    /// A standalone Walrus blob. Fields: blob_id.
-    Blob(u256),
-    /// A patch within a Walrus quilt. Fields: quilt_id, version, start_index, end_index.
+    /// A standalone Walrus blob. Fields: blob_id, confidentiality.
+    Blob(u256, Confidentiality),
+    /// A patch within a Walrus quilt. Fields: quilt_id, version, start_index,
+    /// end_index. Always a plaintext reference into a (possibly separately
+    /// encrypted) quilt blob.
     QuiltPatch(u256, u8, u16, u16),
 }
 
@@ -16,12 +33,27 @@ public enum WalrusData has copy, drop, store {
 
 const ENotBlob: u64 = 0;
 const ENotQuiltPatch: u64 = 1;
+/// The blob is not encrypted, so it has no policy / sealed key.
+const ENotEncrypted: u64 = 2;
+/// An encrypted blob must carry a non-empty sealed data-encryption key.
+const EEmptyDek: u64 = 3;
 
 //=== Public Functions ===
 
-/// Creates a WalrusData referencing a standalone blob.
+/// Creates a WalrusData referencing a standalone, unencrypted blob.
 public fun new_blob(blob_id: u256): WalrusData {
-    WalrusData::Blob(blob_id)
+    WalrusData::Blob(blob_id, Confidentiality::Unencrypted)
+}
+
+/// Creates a WalrusData referencing a standalone, encrypted blob. `blob_id` is
+/// the AES-ciphertext blob; `dek` is the Seal-sealed AES key. The `Policy`
+/// type argument — chosen by the caller — is stamped as the decryption policy.
+public fun new_encrypted_blob<Policy>(blob_id: u256, dek: vector<u8>): WalrusData {
+    assert!(!dek.is_empty(), EEmptyDek);
+    WalrusData::Blob(blob_id, Confidentiality::Encrypted {
+        policy: with_defining_ids<Policy>(),
+        dek,
+    })
 }
 
 /// Creates a WalrusData referencing a patch within a quilt.
@@ -36,11 +68,11 @@ public fun new_quilt_patch(
 
 //=== Public View Functions ===
 
-/// Returns the blob ID for a standalone blob.
+/// Returns the blob ID for a standalone blob (encrypted or not).
 /// Aborts if this is a quilt patch.
 public fun blob_id(self: &WalrusData): u256 {
     match (self) {
-        WalrusData::Blob(blob_id) => *blob_id,
+        WalrusData::Blob(blob_id, _) => *blob_id,
         _ => abort ENotBlob,
     }
 }
@@ -97,10 +129,10 @@ public fun quilt_patch_id(self: &WalrusData): vector<u8> {
     }
 }
 
-/// Returns true if this is a standalone blob.
+/// Returns true if this is a standalone blob (encrypted or not).
 public fun is_blob(self: &WalrusData): bool {
     match (self) {
-        WalrusData::Blob(_) => true,
+        WalrusData::Blob(..) => true,
         _ => false,
     }
 }
@@ -110,6 +142,32 @@ public fun is_quilt_patch(self: &WalrusData): bool {
     match (self) {
         WalrusData::QuiltPatch(..) => true,
         _ => false,
+    }
+}
+
+/// Returns true if this is an encrypted blob.
+public fun is_encrypted(self: &WalrusData): bool {
+    match (self) {
+        WalrusData::Blob(_, Confidentiality::Encrypted { .. }) => true,
+        _ => false,
+    }
+}
+
+/// Returns the decryption policy (witness type) of an encrypted blob.
+/// Aborts if the blob is unencrypted or this is a quilt patch.
+public fun policy(self: &WalrusData): TypeName {
+    match (self) {
+        WalrusData::Blob(_, Confidentiality::Encrypted { policy, .. }) => *policy,
+        _ => abort ENotEncrypted,
+    }
+}
+
+/// Returns the Seal-sealed data-encryption key of an encrypted blob.
+/// Aborts if the blob is unencrypted or this is a quilt patch.
+public fun sealed_dek(self: &WalrusData): &vector<u8> {
+    match (self) {
+        WalrusData::Blob(_, Confidentiality::Encrypted { dek, .. }) => dek,
+        _ => abort ENotEncrypted,
     }
 }
 
