@@ -2,6 +2,6 @@
 name = "ori"
 edition = "2024"
 license = "MIT"
-authors = ["Unconfirmed Labs, LLC (os@unconfirmed.com)"]
+authors = ["Unconfirmed Labs, Inc. (os@unconfirmed.com)"]
 
 [dependencies]
