@@ -1,7 +1,7 @@
 #[test_only]
-module ori::walrus_data_tests;
+module walrus_data::walrus_data_tests;
 
-use ori::walrus_data;
+use walrus_data::walrus_data;
 use std::unit_test::assert_eq;
 
 // === Blob Tests ===

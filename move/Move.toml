@@ -1,5 +1,5 @@
 [package]
-name = "ori"
+name = "walrus_data"
 edition = "2024"
 license = "MIT"
 authors = ["Unconfirmed Labs, Inc. (os@unconfirmed.com)"]

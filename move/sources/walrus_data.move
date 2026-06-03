@@ -1,4 +1,4 @@
-module ori::walrus_data;
+module walrus_data::walrus_data;
 
 use std::type_name::{TypeName, with_defining_ids};
 use sui::bcs;
