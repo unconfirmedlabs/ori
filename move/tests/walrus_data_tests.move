@@ -199,3 +199,31 @@ fun test_quilt_patch_id_on_blob_aborts() {
     let data = walrus_data::new_blob(1);
     data.quilt_patch_id();
 }
+
+// === Encrypted Blob Tests ===
+
+#[test]
+fun test_new_encrypted_blob() {
+    let data = walrus_data::new_encrypted_blob(7, b"sealed-dek");
+    assert!(data.is_blob());
+    assert!(data.is_encrypted());
+    assert_eq!(data.blob_id(), 7);
+    assert_eq!(*data.sealed_dek(), b"sealed-dek");
+}
+
+#[test]
+fun test_plain_blob_is_not_encrypted() {
+    let data = walrus_data::new_blob(7);
+    assert!(!data.is_encrypted());
+}
+
+#[test, expected_failure(abort_code = walrus_data::EEmptyDek)]
+fun test_encrypted_blob_empty_dek_aborts() {
+    walrus_data::new_encrypted_blob(7, b"");
+}
+
+#[test, expected_failure(abort_code = walrus_data::ENotEncrypted)]
+fun test_sealed_dek_on_plain_blob_aborts() {
+    let data = walrus_data::new_blob(7);
+    data.sealed_dek();
+}

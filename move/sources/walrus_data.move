@@ -1,6 +1,5 @@
 module walrus_data::walrus_data;
 
-use std::type_name::{TypeName, with_defining_ids};
 use sui::bcs;
 
 //=== Enums ===
@@ -12,11 +11,12 @@ public enum Confidentiality has copy, drop, store {
     /// The blob is stored in the clear.
     Unencrypted,
     /// The blob is AES-encrypted. `dek` is the AES data-encryption key sealed
-    /// via Seal (a small ciphertext stored on-chain — not the blob bytes).
-    /// `policy` is the decryption-policy witness type; a Seal `seal_approve`
-    /// compares it against the runtime witness's type. Decryption itself is
-    /// gated by that policy package, not by this library.
-    Encrypted { policy: TypeName, dek: vector<u8> },
+    /// via Seal — a small ciphertext stored on-chain, not the blob bytes. The
+    /// sealed DEK is itself a Seal `EncryptedObject`, which already carries the
+    /// decryption-policy package id, so no separate policy field is stored here.
+    /// Decryption is gated by that policy package's `seal_approve`, not by this
+    /// library.
+    Encrypted { dek: vector<u8> },
 }
 
 /// Represents either a standalone Walrus blob or a patch within a quilt.
@@ -33,7 +33,7 @@ public enum WalrusData has copy, drop, store {
 
 const ENotBlob: u64 = 0;
 const ENotQuiltPatch: u64 = 1;
-/// The blob is not encrypted, so it has no policy / sealed key.
+/// The blob is not encrypted, so it has no sealed key.
 const ENotEncrypted: u64 = 2;
 /// An encrypted blob must carry a non-empty sealed data-encryption key.
 const EEmptyDek: u64 = 3;
@@ -46,14 +46,11 @@ public fun new_blob(blob_id: u256): WalrusData {
 }
 
 /// Creates a WalrusData referencing a standalone, encrypted blob. `blob_id` is
-/// the AES-ciphertext blob; `dek` is the Seal-sealed AES key. The `Policy`
-/// type argument — chosen by the caller — is stamped as the decryption policy.
-public fun new_encrypted_blob<Policy>(blob_id: u256, dek: vector<u8>): WalrusData {
+/// the AES-ciphertext blob; `dek` is the Seal-sealed AES key (a Seal
+/// `EncryptedObject`, which itself encodes the decryption-policy package).
+public fun new_encrypted_blob(blob_id: u256, dek: vector<u8>): WalrusData {
     assert!(!dek.is_empty(), EEmptyDek);
-    WalrusData::Blob(blob_id, Confidentiality::Encrypted {
-        policy: with_defining_ids<Policy>(),
-        dek,
-    })
+    WalrusData::Blob(blob_id, Confidentiality::Encrypted { dek })
 }
 
 /// Creates a WalrusData referencing a patch within a quilt.
@@ -150,15 +147,6 @@ public fun is_encrypted(self: &WalrusData): bool {
     match (self) {
         WalrusData::Blob(_, Confidentiality::Encrypted { .. }) => true,
         _ => false,
-    }
-}
-
-/// Returns the decryption policy (witness type) of an encrypted blob.
-/// Aborts if the blob is unencrypted or this is a quilt patch.
-public fun policy(self: &WalrusData): TypeName {
-    match (self) {
-        WalrusData::Blob(_, Confidentiality::Encrypted { policy, .. }) => *policy,
-        _ => abort ENotEncrypted,
     }
 }
 
