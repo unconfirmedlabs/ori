@@ -1,4 +1,4 @@
-module walrus_data::walrus_data;
+module ori::walrus_data;
 
 use sui::bcs;
 
