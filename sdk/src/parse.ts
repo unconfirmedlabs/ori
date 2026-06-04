@@ -70,18 +70,10 @@ function parseConfidentiality(c: unknown): Confidentiality | undefined {
   if (tag === "Encrypted") {
     return {
       type: "Encrypted",
-      policy: parsePolicy(d["policy"]),
       dek: toHex(d["dek"]),
     };
   }
   return undefined;
-}
-
-/** Normalizes a Move `TypeName` (string, or `{ name }`) to its string form. */
-function parsePolicy(p: unknown): string {
-  if (typeof p === "string") return p;
-  if (p && typeof p === "object" && "name" in p) return String((p as { name: unknown }).name);
-  return String(p);
 }
 
 /** Normalizes a Move `vector<u8>` (number[] or already-hex string) to a hex string. */

@@ -160,6 +160,16 @@ describe("parseWalrusData", () => {
     expect(result).toEqual({ type: "QuiltPatch", quiltId: "100", version: 1, startIndex: 0, endIndex: 5 });
   });
 
+  test("parses encrypted Blob confidentiality (sealed dek, no policy)", () => {
+    const result = parseWalrusData({ pos0: "42", pos1: { "@variant": "Encrypted", dek: [0xab, 0xcd] } });
+    expect(result).toEqual({ type: "Blob", blobId: "42", confidentiality: { type: "Encrypted", dek: "abcd" } });
+  });
+
+  test("parses unencrypted Blob confidentiality", () => {
+    const result = parseWalrusData({ pos0: "42", pos1: { "@variant": "Unencrypted" } });
+    expect(result).toEqual({ type: "Blob", blobId: "42", confidentiality: { type: "Unencrypted" } });
+  });
+
   test("passes through already-parsed Blob", () => {
     const data = { type: "Blob", blobId: "123" };
     expect(parseWalrusData(data)).toEqual(data);

@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * Confidentiality of a standalone blob: cleartext, or encrypted with an access
- * policy. Only blobs can be encrypted (a quilt patch is a slice of a shared
- * quilt blob, never the direct product of an encryption).
+ * Confidentiality of a standalone blob: cleartext, or encrypted. Only blobs can
+ * be encrypted (a quilt patch is a slice of a shared quilt blob, never the
+ * direct product of an encryption).
  */
 export type Confidentiality =
   | { type: "Unencrypted" }
   | {
       type: "Encrypted";
-      /** Decryption-policy witness type (fully-qualified Move type name). */
-      policy: string;
-      /** Seal-sealed AES data-encryption key, as a hex string. */
+      /**
+       * Seal-sealed AES data-encryption key, as a hex string. This is a Seal
+       * `EncryptedObject`, which itself encodes the decryption-policy package.
+       */
       dek: string;
     };
 
