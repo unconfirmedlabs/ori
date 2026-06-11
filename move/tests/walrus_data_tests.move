@@ -227,3 +227,17 @@ fun test_sealed_dek_on_plain_blob_aborts() {
     let data = walrus_data::new_blob(7);
     data.sealed_dek();
 }
+
+#[test]
+fun test_quilt_patch_is_not_encrypted() {
+    // A quilt patch is never encrypted — it's a plaintext slice reference
+    // into a (possibly separately encrypted) quilt blob.
+    let data = walrus_data::new_quilt_patch(1, 1, 0, 1);
+    assert!(!data.is_encrypted());
+}
+
+#[test, expected_failure(abort_code = walrus_data::ENotEncrypted)]
+fun test_sealed_dek_on_quilt_patch_aborts() {
+    let data = walrus_data::new_quilt_patch(1, 1, 0, 1);
+    data.sealed_dek();
+}
