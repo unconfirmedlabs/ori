@@ -92,13 +92,14 @@ data.assert_is_quilt_patch(); // aborts if not a QuiltPatch
 | `assert_is_blob` | `(&WalrusData)` | Abort if not Blob |
 | `assert_is_quilt_patch` | `(&WalrusData)` | Abort if not QuiltPatch |
 
-## Testnet Deployment
+## Published packages
 
-ori is published on Sui testnet:
+Both deployments are immutable.
 
-```
-Package ID: 0xcfd348c336ec562d7cce245711ddd7835df6b02e88aaea4fcb6ec08a7afb1829
-```
+| Network | Package ID | Transaction digest |
+| --- | --- | --- |
+| Mainnet | `0x6b48ac981da192c9f7308cd8a781dffde9790288c5bfb6b935b94cf8fa1f043f` | `BP17wt9Z73CnZWq8hkkQeswE66BdC6PCc8pgLK7kZC1o` |
+| Testnet | `0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a` | `D7dWZ98usk1sea7YA2ftPWd43HrF7TgChjCCnPZKdgnB` |
 
 ## Development
 
