@@ -1,121 +1,110 @@
 # ori
 
-A Sui Move library for referencing data stored on [Walrus](https://docs.walrus.site/). Supports both standalone blobs and [quilt](https://docs.walrus.site/usage/quilts.html) patches.
+A Sui Move library for embedding concrete references to data stored on [Walrus](https://docs.wal.app/).
 
 ## Overview
 
-`ori` provides a single enum type, `WalrusData`, that represents a reference to data on Walrus. It has two variants:
+Ori keeps the three Walrus concepts distinct:
 
-- **`Blob(u256)`** — a reference to a standalone Walrus blob, identified by its blob ID.
-- **`QuiltPatch(u256, u8, u16, u16)`** — a reference to a patch within a Walrus quilt, identified by the quilt ID, version, start index, and end index.
+- `WalrusBlob` references a standalone blob by its `u256` blob ID.
+- `WalrusQuilt` references a complete quilt by its `u256` quilt ID.
+- `WalrusQuiltPatch` references one patch by its opaque `vector<u8>` patch ID.
 
-The type has `copy`, `drop`, and `store` abilities, so it can be freely embedded in other on-chain objects.
+`WalrusBlob` and `WalrusQuiltPatch` carry a required `WalrusConfidentiality`, either `Unencrypted` or `Encrypted { dek }`. The encrypted DEK is a Seal-encrypted data-encryption key, not plaintext key material. All types have `copy`, `drop`, and `store` abilities.
 
-## Installation
+This mirrors Walrus's own distinction between a blob, a batch, and an item within that batch. See the official [quilt overview](https://docs.wal.app/docs/system-overview/quilt) and [quilt HTTP API](https://docs.wal.app/docs/http-api/quilt-http-apis).
 
-Add ori as a dependency in your `Move.toml`:
-
-```toml
-[dependencies]
-ori = { git = "https://github.com/unconfirmedlabs/ori.git", rev = "main" }
-```
+The concrete Move API documented below is currently source-only and has not yet been deployed as a new immutable package. The legacy package IDs below do not contain these types. A stable dependency declaration will be documented when the new Move package is published.
 
 ## Usage
 
 ```move
-use ori::walrus_data::{Self, WalrusData};
+use ori::walrus_data;
 
-// Reference a standalone blob
-let blob: WalrusData = walrus_data::new_blob(blob_id);
+let blob = walrus_data::new_blob(blob_id);
+let encrypted_blob = walrus_data::new_encrypted_blob(ciphertext_blob_id, sealed_dek);
 
-// Reference a quilt patch
-let patch: WalrusData = walrus_data::new_quilt_patch(
-    quilt_id,
-    version,
-    start_index,
-    end_index,
-);
+let quilt = walrus_data::new_quilt(quilt_id);
+
+// Patch IDs are opaque bytes obtained from Walrus.
+let patch = walrus_data::new_quilt_patch(quilt_patch_id);
+let encrypted_patch =
+    walrus_data::new_encrypted_quilt_patch(encrypted_patch_id, sealed_dek);
+```
+
+Applications can make their storage choice explicit in field types:
+
+```move
+public struct Release has store {
+    master: walrus_data::WalrusBlob,
+    stems: walrus_data::WalrusQuilt,
+    cover: walrus_data::WalrusQuiltPatch,
+}
 ```
 
 ### Reading fields
 
 ```move
-// Check the variant
-if (data.is_blob()) {
-    let id: u256 = data.blob_id();
-} else {
-    let qid: u256 = data.quilt_id();
-    let ver: u8 = data.quilt_patch_version();
-    let start: u16 = data.quilt_patch_start_index();
-    let end: u16 = data.quilt_patch_end_index();
+let blob_id: u256 = blob.blob_id();
+let quilt_id: u256 = quilt.quilt_id();
+let patch_id: &vector<u8> = patch.quilt_patch_id();
+
+let confidentiality = blob.blob_confidentiality();
+if (confidentiality.is_encrypted()) {
+    let sealed_dek: &vector<u8> = confidentiality.sealed_dek();
 };
 ```
 
-Calling a field accessor on the wrong variant aborts the transaction.
+`sealed_dek` aborts for `Unencrypted`. Encrypted constructors reject an empty DEK, and quilt-patch constructors reject an empty patch ID.
 
-### Quilt patch ID encoding
-
-`quilt_patch_id` serializes a quilt patch reference into a 37-byte `vector<u8>`:
-
-| Bytes | Field | Encoding |
-|-------|-------|----------|
-| 0..31 | `quilt_id` | 32 bytes, little-endian |
-| 32 | `version` | 1 byte |
-| 33..34 | `start_index` | 2 bytes, little-endian |
-| 35..36 | `end_index` | 2 bytes, little-endian |
-
-```move
-let raw: vector<u8> = patch.quilt_patch_id();
-```
-
-### Assertions
-
-```move
-data.assert_is_blob();        // aborts if not a Blob
-data.assert_is_quilt_patch(); // aborts if not a QuiltPatch
-```
-
-## API Reference
+## Move API
 
 | Function | Signature | Description |
-|----------|-----------|-------------|
-| `new_blob` | `(u256): WalrusData` | Create a blob reference |
-| `new_quilt_patch` | `(u256, u8, u16, u16): WalrusData` | Create a quilt patch reference |
-| `blob_id` | `(&WalrusData): u256` | Get blob ID (aborts on QuiltPatch) |
-| `quilt_id` | `(&WalrusData): u256` | Get quilt ID (aborts on Blob) |
-| `quilt_patch_version` | `(&WalrusData): u8` | Get patch version (aborts on Blob) |
-| `quilt_patch_start_index` | `(&WalrusData): u16` | Get patch start index (aborts on Blob) |
-| `quilt_patch_end_index` | `(&WalrusData): u16` | Get patch end index (aborts on Blob) |
-| `quilt_patch_id` | `(&WalrusData): vector<u8>` | Encode patch as 37-byte ID (aborts on Blob) |
-| `is_blob` | `(&WalrusData): bool` | Check if Blob variant |
-| `is_quilt_patch` | `(&WalrusData): bool` | Check if QuiltPatch variant |
-| `assert_is_blob` | `(&WalrusData)` | Abort if not Blob |
-| `assert_is_quilt_patch` | `(&WalrusData)` | Abort if not QuiltPatch |
+| --- | --- | --- |
+| `new_blob` | `(u256): WalrusBlob` | Create an unencrypted standalone blob reference |
+| `new_encrypted_blob` | `(u256, vector<u8>): WalrusBlob` | Create an encrypted standalone blob reference |
+| `new_quilt` | `(u256): WalrusQuilt` | Create a complete quilt reference |
+| `new_quilt_patch` | `(vector<u8>): WalrusQuiltPatch` | Create an unencrypted opaque patch reference |
+| `new_encrypted_quilt_patch` | `(vector<u8>, vector<u8>): WalrusQuiltPatch` | Create an encrypted opaque patch reference |
+| `blob_id` | `(&WalrusBlob): u256` | Return a standalone blob ID |
+| `blob_confidentiality` | `(&WalrusBlob): &WalrusConfidentiality` | Return blob confidentiality |
+| `quilt_id` | `(&WalrusQuilt): u256` | Return a complete quilt ID |
+| `quilt_patch_id` | `(&WalrusQuiltPatch): &vector<u8>` | Return opaque patch ID bytes |
+| `quilt_patch_confidentiality` | `(&WalrusQuiltPatch): &WalrusConfidentiality` | Return patch confidentiality |
+| `is_encrypted` | `(&WalrusConfidentiality): bool` | Test confidentiality |
+| `sealed_dek` | `(&WalrusConfidentiality): &vector<u8>` | Return the encrypted DEK; abort if unencrypted |
 
-## Published packages
+## TypeScript SDK
 
-Both deployments are immutable.
+The `@unconfirmed/ori` package provides matching concrete types, strict Move JSON parsers, ID codecs, and helpers for the official [Walrus blob](https://docs.wal.app/docs/http-api/reading-blobs) and [quilt](https://docs.wal.app/docs/http-api/quilt-http-apis) read endpoints.
 
-| Network | Package ID | Transaction digest |
+```sh
+npm install @unconfirmed/ori
+```
+
+See the [SDK README](sdk/README.md) for its complete API and the 0.2.0 migration notes.
+
+## Legacy 0.1 deployments
+
+These immutable deployments expose the old `WalrusData` enum API. They are retained for historical users and do **not** contain the concrete API documented above.
+
+| Network | Legacy 0.1 package ID | Transaction digest |
 | --- | --- | --- |
 | Mainnet | `0x6b48ac981da192c9f7308cd8a781dffde9790288c5bfb6b935b94cf8fa1f043f` | `BP17wt9Z73CnZWq8hkkQeswE66BdC6PCc8pgLK7kZC1o` |
 | Testnet | `0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a` | `D7dWZ98usk1sea7YA2ftPWd43HrF7TgChjCCnPZKdgnB` |
 
 ## Development
 
-### Build
-
 ```sh
 sui move build
-```
-
-### Test
-
-```sh
 sui move test
-```
 
-The test suite covers blob and quilt patch construction, field accessors, boundary values, quilt patch ID encoding against real quilt data, and cross-variant abort behavior.
+cd sdk
+npm ci
+npm test
+npm run typecheck
+npm run build
+```
 
 ## License
 

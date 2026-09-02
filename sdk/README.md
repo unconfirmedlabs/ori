@@ -1,40 +1,123 @@
 # @unconfirmed/ori
 
-TypeScript types and URL helpers for the [Ori](https://github.com/unconfirmedlabs/ori) Walrus data package on Sui.
+TypeScript types, strict parsers, and Walrus aggregator URL helpers for the [Ori](https://github.com/unconfirmedlabs/ori) Move package.
 
 ## Install
 
-```bash
-npm install @unconfirmed/ori
+```sh
+npm install @unconfirmed/ori @mysten/sui
 ```
 
-## Usage
+`@mysten/sui` is a peer dependency.
 
-```typescript
-import { walrusDataUrl, parseWalrusData, u256ToB64Url } from "@unconfirmed/ori";
-import type { WalrusData } from "@unconfirmed/ori";
+## Concrete reference types
 
-// Parse on-chain JSON into typed WalrusData
-const data = parseWalrusData(onChainJson);
+Ori models the three distinct Walrus concepts separately:
 
-// Generate aggregator URL
-const url = walrusDataUrl("https://aggregator.walrus.site", data);
+```ts
+import type {
+  WalrusBlob,
+  WalrusConfidentiality,
+  WalrusQuilt,
+  WalrusQuiltPatch,
+} from "@unconfirmed/ori";
+
+const confidentiality: WalrusConfidentiality = { type: "Unencrypted" };
+
+const blob: WalrusBlob = {
+  blobId: "42", // decimal u256
+  confidentiality,
+};
+
+const quilt: WalrusQuilt = {
+  quiltId: "42", // decimal u256
+};
+
+const patch: WalrusQuiltPatch = {
+  quiltPatchId: "QDKNLeUeLquludWfLV-UywuEvbIr7bruPGz5n1ppz2EBAQACAA",
+  confidentiality,
+};
 ```
 
-## API
+Encrypted references carry a Seal-encrypted data-encryption key as normalized lowercase, unprefixed hex:
 
-### Types
+```ts
+const encrypted: WalrusConfidentiality = {
+  type: "Encrypted",
+  dek: "deadbeef",
+};
+```
 
-- **`WalrusData`** — Discriminated union: `{ type: "Blob"; blobId: string }` or `{ type: "QuiltPatch"; quiltId: string; version: number; startIndex: number; endIndex: number }`
+## Parse Move JSON
 
-### Functions
+The parsers accept either named Move JSON fields or an already-normalized camelCase value:
 
-- **`parseWalrusData(json)`** — Parse on-chain WalrusData JSON into the typed union
-- **`walrusDataUrl(aggregatorUrl, data)`** — Build a Walrus aggregator URL for any WalrusData variant
-- **`u256ToB64Url(value)`** — Convert a u256 decimal string to base64url blob ID
-- **`b64UrlToU256(blobId)`** — Convert a base64url blob ID to u256 decimal string
-- **`quiltPatchId(quiltId, version, startIndex, endIndex)`** — Build a 37-byte quilt patch ID as base64url
-- **`assertBlobId(data)`** — Extract blob ID from a Blob variant (throws on QuiltPatch)
+```ts
+import {
+  parseWalrusBlob,
+  parseWalrusConfidentiality,
+  parseWalrusQuilt,
+  parseWalrusQuiltPatch,
+} from "@unconfirmed/ori";
+
+const blob = parseWalrusBlob({
+  blob_id: "42",
+  confidentiality: { "@variant": "Unencrypted" },
+});
+
+const quilt = parseWalrusQuilt({ quilt_id: "42" });
+
+const patch = parseWalrusQuiltPatch({
+  quilt_patch_id: [0x51, 0x02, 0xff],
+  confidentiality: { "@variant": "Encrypted", dek: "0xDEADBEEF" },
+});
+```
+
+Parsers are intentionally strict. They reject positional fields, unknown fields, missing confidentiality, malformed IDs, invalid byte values, and empty encrypted DEKs. Raw Move `vector<u8>` values may be a `number[]`, `Uint8Array`, or even-length hex string. Patch IDs normalize to unpadded base64url; DEKs normalize to lowercase unprefixed hex.
+
+## Build aggregator URLs
+
+```ts
+import {
+  walrusBlobUrl,
+  walrusQuiltItemUrl,
+  walrusQuiltPatchUrl,
+} from "@unconfirmed/ori";
+
+walrusBlobUrl("https://aggregator.example.com/", blob);
+// https://aggregator.example.com/v1/blobs/<BLOB_ID>
+
+walrusQuiltPatchUrl("https://aggregator.example.com", patch);
+// https://aggregator.example.com/v1/blobs/by-quilt-patch-id/<PATCH_ID>
+
+walrusQuiltItemUrl("https://aggregator.example.com", quilt, "mixes/final.wav");
+// https://aggregator.example.com/v1/blobs/by-quilt-id/<QUILT_ID>/mixes%2Ffinal.wav
+```
+
+Aggregator trailing slashes are normalized. Quilt item identifiers are encoded as exactly one URL path segment. See the official [Walrus quilt HTTP API](https://docs.wal.app/docs/http-api/quilt-http-apis) and [blob read API](https://docs.wal.app/docs/http-api/reading-blobs).
+
+## ID conversion
+
+```ts
+import {
+  b64UrlToU256,
+  quiltPatchIdFromBytes,
+  quiltPatchIdToBytes,
+  u256ToB64Url,
+} from "@unconfirmed/ori";
+
+const blobId = u256ToB64Url("42");
+const decimal = b64UrlToU256(blobId);
+
+const patchId = quiltPatchIdFromBytes(rawPatchId);
+const rawPatchIdAgain = quiltPatchIdToBytes(patchId);
+```
+
+## Breaking changes in 0.2.0
+
+Version 0.2.0 removes the generic `WalrusData` union and its `parseWalrusData`, `walrusDataUrl`, and `assertBlobId` helpers. It also removes the decomposed `quiltPatchId(quiltId, version, startIndex, endIndex)` helper. Use the concrete reference type, parser, and URL helper appropriate to each field.
+
+Confidentiality is now required on blobs and patches. A complete quilt has its own `WalrusQuilt` type and does not carry confidentiality.
 
 ## License
 
