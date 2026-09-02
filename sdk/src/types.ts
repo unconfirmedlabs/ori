@@ -1,7 +1,7 @@
 // Copyright (c) Unconfirmed Labs, Inc.
 // SPDX-License-Identifier: MIT
 
-/** Confidentiality metadata attached to referenced data. */
+/** Mirrors the composed `ori::confidentiality::Confidentiality` value. */
 export type Confidentiality =
   | { type: "Unencrypted" }
   | {
@@ -10,7 +10,7 @@ export type Confidentiality =
       sealedDek: string;
     };
 
-/** A standalone Walrus blob, represented on-chain by its u256 blob ID. */
+/** A standalone Walrus blob with composed confidentiality metadata. */
 export interface WalrusBlob {
   /** Canonical decimal representation of the Walrus blob ID. */
   blobId: string;
@@ -23,7 +23,7 @@ export interface WalrusQuilt {
   quiltId: string;
 }
 
-/** A single patch within a Walrus quilt. */
+/** A single quilt patch with composed confidentiality metadata. */
 export interface WalrusQuiltPatch {
   /** Canonical, unpadded base64url representation of the opaque patch ID bytes. */
   quiltPatchId: string;

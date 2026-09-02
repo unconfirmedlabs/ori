@@ -11,9 +11,9 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
-/** Parse a named Move JSON or normalized camelCase confidentiality value. */
+/** Parse `ori::confidentiality::Confidentiality` Move JSON or normalized camelCase JSON. */
 export function parseConfidentiality(value: unknown): Confidentiality {
-  const input = record(value, "Confidentiality");
+  const input = record(value, "ori::confidentiality::Confidentiality");
 
   if (hasExactKeys(input, ["@variant"]) && input["@variant"] === "Unencrypted") {
     return { type: "Unencrypted" };

@@ -2,8 +2,21 @@
 // SPDX-License-Identifier: MIT
 
 export type { Confidentiality, WalrusBlob, WalrusQuilt, WalrusQuiltPatch } from "./types.js";
-export type { OriNetwork } from "./deployments.js";
-export { ORI_PACKAGE_IDS, oriPackageId } from "./deployments.js";
+export type {
+  LegacyOriNetwork,
+  OriDeployment,
+  OriDeployments,
+  OriNetwork,
+  OriPackageIds,
+} from "./deployments.js";
+export {
+  AUDITED_ORI_PACKAGE_ARTIFACT_SHA256,
+  LEGACY_ORI_PACKAGE_IDS,
+  legacyOriPackageId,
+  ORI_DEPLOYMENTS,
+  ORI_PACKAGE_IDS,
+  oriPackageId,
+} from "./deployments.js";
 export {
   parseConfidentiality,
   parseWalrusBlob,

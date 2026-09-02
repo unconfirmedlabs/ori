@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { blobIdFromInt, blobIdToInt } from "@mysten/walrus";
 import {
   b64UrlToU256,
+  AUDITED_ORI_PACKAGE_ARTIFACT_SHA256,
+  LEGACY_ORI_PACKAGE_IDS,
+  legacyOriPackageId,
+  ORI_DEPLOYMENTS,
   ORI_PACKAGE_IDS,
   oriPackageId,
   parseConfidentiality,
@@ -15,6 +19,7 @@ import {
   walrusQuiltItemUrl,
   walrusQuiltPatchUrl,
 } from "./index.js";
+import { assertReleaseReady } from "./release-readiness.js";
 import type {
   Confidentiality,
   WalrusBlob,
@@ -29,15 +34,67 @@ const REAL_BLOB_U256 = blobIdToInt(REAL_BLOB_ID).toString();
 const REAL_QUILT_U256 = blobIdToInt(REAL_QUILT_ID).toString();
 const UNENCRYPTED = { type: "Unencrypted" } satisfies Confidentiality;
 
-describe("deployments", () => {
-  test("exports the immutable package IDs", () => {
-    expect(oriPackageId("mainnet")).toBe(
+describe("legacy deployments", () => {
+  test("clearly exports the pre-split immutable package IDs as legacy", () => {
+    expect(legacyOriPackageId("mainnet")).toBe(
       "0xe9b70375353ec0ed99e9ef2a4e51e70087db042ceba4631430cc2d7217b7fdcf",
     );
-    expect(oriPackageId("testnet")).toBe(
+    expect(legacyOriPackageId("testnet")).toBe(
       "0x3013ca910b7571a5d19b215cce1037ea0061ba844831ea7013ce1b37303ec0ca",
     );
-    expect(Object.keys(ORI_PACKAGE_IDS).sort()).toEqual(["mainnet", "testnet"]);
+    expect(Object.keys(LEGACY_ORI_PACKAGE_IDS).sort()).toEqual(["mainnet", "testnet"]);
+  });
+});
+
+describe("release readiness", () => {
+  const mainnet = `0x${"1".repeat(64)}`;
+  const testnet = `0x${"2".repeat(64)}`;
+  const mainnetTransaction = "2FumWeQAu3uMgynnPHJu1NGfx2t5zprF3vrx12Wg4W9R";
+  const testnetTransaction = "4bi48n3Nxfk8qf7EdiQPfVdkTSonoR9FVdZBHJKwc29m";
+  const deployment = (packageId: string, publishTransactionDigest: string) => ({
+    packageId,
+    publishTransactionDigest,
+    packageArtifactSha256: AUDITED_ORI_PACKAGE_ARTIFACT_SHA256,
+  });
+  const valid = {
+    mainnet: deployment(mainnet, mainnetTransaction),
+    testnet: deployment(testnet, testnetTransaction),
+  };
+
+  test("accepts complete, audited, distinct deployment proofs", () => {
+    expect(() => assertReleaseReady(valid, LEGACY_ORI_PACKAGE_IDS)).not.toThrow();
+  });
+
+  test("exports complete current deployment proofs and package-ID helpers", () => {
+    expect(() => assertReleaseReady(ORI_DEPLOYMENTS, LEGACY_ORI_PACKAGE_IDS)).not.toThrow();
+    expect(oriPackageId("mainnet")).toBe(
+      "0xadefbe1aeb900807ed03144bddd80dc6478030c28ede3b2990f8e792606f317a",
+    );
+    expect(oriPackageId("testnet")).toBe(
+      "0x51792b9adb9a5d05d7c4d74d7d0cb5aefc5639afa80c0089399cab8b99752e60",
+    );
+    expect(ORI_PACKAGE_IDS).toEqual({
+      mainnet: ORI_DEPLOYMENTS.mainnet.packageId,
+      testnet: ORI_DEPLOYMENTS.testnet.packageId,
+    });
+  });
+
+  test.each([
+    null,
+    {},
+    { mainnet: valid.mainnet },
+    { ...valid, devnet: deployment(`0x${"3".repeat(64)}`, mainnetTransaction) },
+    { ...valid, mainnet: deployment("0x1", mainnetTransaction) },
+    { ...valid, mainnet: deployment(`0x${"A".repeat(64)}`, mainnetTransaction) },
+    { ...valid, mainnet: deployment(`0x${"0".repeat(64)}`, mainnetTransaction) },
+    { ...valid, testnet: deployment(mainnet, testnetTransaction) },
+    { ...valid, testnet: deployment(testnet, mainnetTransaction) },
+    { ...valid, mainnet: deployment(LEGACY_ORI_PACKAGE_IDS.mainnet, mainnetTransaction) },
+    { ...valid, mainnet: { ...valid.mainnet, publishTransactionDigest: "not-a-digest" } },
+    { ...valid, mainnet: { ...valid.mainnet, packageArtifactSha256: "0".repeat(64) } },
+    { ...valid, mainnet: { ...valid.mainnet, unexpected: true } },
+  ])("rejects unsafe deployment configuration %#", (current) => {
+    expect(() => assertReleaseReady(current, LEGACY_ORI_PACKAGE_IDS)).toThrow();
   });
 });
 

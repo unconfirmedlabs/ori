@@ -101,6 +101,11 @@ jobs:
               ;;
           esac
 
+      - name: Verify audited immutable deployments on-chain
+        if: steps.registry.outputs.published == 'false'
+        working-directory: sdk
+        run: npm run validate:release
+
       - name: Publish with trusted OIDC
         if: steps.registry.outputs.published == 'false'
         working-directory: sdk

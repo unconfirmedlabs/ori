@@ -1,6 +1,6 @@
 {
   "name": "@unconfirmed/ori",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Concrete TypeScript types, parsers, and URL helpers for Ori Walrus references on Sui.",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,8 @@
     "test": "bun test",
     "typecheck": "tsc -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "prepublishOnly": "npm run test && npm run typecheck && npm run build"
+    "validate:release": "bun scripts/validate-release-readiness.ts",
+    "prepublishOnly": "npm run validate:release && npm run test && npm run typecheck && npm run build"
   },
   "publishConfig": {
     "access": "public"
