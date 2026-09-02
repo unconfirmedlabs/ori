@@ -4,7 +4,7 @@
 import { quiltPatchIdFromBytes, quiltPatchIdToBytes } from "./url.js";
 import type {
   WalrusBlob,
-  WalrusConfidentiality,
+  Confidentiality,
   WalrusQuilt,
   WalrusQuiltPatch,
 } from "./types.js";
@@ -12,8 +12,8 @@ import type {
 type UnknownRecord = Record<string, unknown>;
 
 /** Parse a named Move JSON or normalized camelCase confidentiality value. */
-export function parseWalrusConfidentiality(value: unknown): WalrusConfidentiality {
-  const input = record(value, "WalrusConfidentiality");
+export function parseConfidentiality(value: unknown): Confidentiality {
+  const input = record(value, "Confidentiality");
 
   if (hasExactKeys(input, ["@variant"]) && input["@variant"] === "Unencrypted") {
     return { type: "Unencrypted" };
@@ -21,14 +21,20 @@ export function parseWalrusConfidentiality(value: unknown): WalrusConfidentialit
   if (hasExactKeys(input, ["type"]) && input["type"] === "Unencrypted") {
     return { type: "Unencrypted" };
   }
-  if (hasExactKeys(input, ["@variant", "dek"]) && input["@variant"] === "Encrypted") {
-    return { type: "Encrypted", dek: bytesToHex(parseBytes(input["dek"], "encrypted dek")) };
+  if (hasExactKeys(input, ["@variant", "sealed_dek"]) && input["@variant"] === "Encrypted") {
+    return {
+      type: "Encrypted",
+      sealedDek: bytesToHex(parseBytes(input["sealed_dek"], "sealed DEK")),
+    };
   }
-  if (hasExactKeys(input, ["type", "dek"]) && input["type"] === "Encrypted") {
-    return { type: "Encrypted", dek: bytesToHex(parseBytes(input["dek"], "encrypted dek")) };
+  if (hasExactKeys(input, ["type", "sealedDek"]) && input["type"] === "Encrypted") {
+    return {
+      type: "Encrypted",
+      sealedDek: bytesToHex(parseBytes(input["sealedDek"], "sealed DEK")),
+    };
   }
 
-  throw new Error("Invalid WalrusConfidentiality");
+  throw new Error("Invalid Confidentiality");
 }
 
 /** Parse `{ blob_id, confidentiality }` Move JSON or normalized camelCase JSON. */
@@ -37,13 +43,13 @@ export function parseWalrusBlob(value: unknown): WalrusBlob {
   if (hasExactKeys(input, ["blob_id", "confidentiality"])) {
     return {
       blobId: parseU256(input["blob_id"], "blob_id"),
-      confidentiality: parseWalrusConfidentiality(input["confidentiality"]),
+      confidentiality: parseConfidentiality(input["confidentiality"]),
     };
   }
   if (hasExactKeys(input, ["blobId", "confidentiality"])) {
     return {
       blobId: parseU256(input["blobId"], "blobId"),
-      confidentiality: parseWalrusConfidentiality(input["confidentiality"]),
+      confidentiality: parseConfidentiality(input["confidentiality"]),
     };
   }
   throw new Error("Invalid WalrusBlob");
@@ -67,13 +73,13 @@ export function parseWalrusQuiltPatch(value: unknown): WalrusQuiltPatch {
   if (hasExactKeys(input, ["quilt_patch_id", "confidentiality"])) {
     return {
       quiltPatchId: parsePatchId(input["quilt_patch_id"]),
-      confidentiality: parseWalrusConfidentiality(input["confidentiality"]),
+      confidentiality: parseConfidentiality(input["confidentiality"]),
     };
   }
   if (hasExactKeys(input, ["quiltPatchId", "confidentiality"])) {
     return {
       quiltPatchId: parseNormalizedPatchId(input["quiltPatchId"]),
-      confidentiality: parseWalrusConfidentiality(input["confidentiality"]),
+      confidentiality: parseConfidentiality(input["confidentiality"]),
     };
   }
   throw new Error("Invalid WalrusQuiltPatch");
@@ -90,7 +96,7 @@ function parseNormalizedPatchId(value: unknown): string {
 }
 
 function bytesToHex(bytes: Uint8Array): string {
-  if (bytes.length === 0) throw new Error("encrypted dek must not be empty");
+  if (bytes.length === 0) throw new Error("sealed DEK must not be empty");
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 

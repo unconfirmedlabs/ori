@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { blobIdFromInt, blobIdToInt } from "@mysten/walrus";
 import {
   b64UrlToU256,
+  ORI_PACKAGE_IDS,
+  oriPackageId,
+  parseConfidentiality,
   parseWalrusBlob,
-  parseWalrusConfidentiality,
   parseWalrusQuilt,
   parseWalrusQuiltPatch,
   quiltPatchIdFromBytes,
@@ -14,8 +16,8 @@ import {
   walrusQuiltPatchUrl,
 } from "./index.js";
 import type {
+  Confidentiality,
   WalrusBlob,
-  WalrusConfidentiality,
   WalrusQuilt,
   WalrusQuiltPatch,
 } from "./index.js";
@@ -25,7 +27,19 @@ const REAL_QUILT_ID = "QDKNLeUeLquludWfLV-UywuEvbIr7bruPGz5n1ppz2E";
 const REAL_PATCH_ID = "QDKNLeUeLquludWfLV-UywuEvbIr7bruPGz5n1ppz2EBAQACAA";
 const REAL_BLOB_U256 = blobIdToInt(REAL_BLOB_ID).toString();
 const REAL_QUILT_U256 = blobIdToInt(REAL_QUILT_ID).toString();
-const UNENCRYPTED = { type: "Unencrypted" } satisfies WalrusConfidentiality;
+const UNENCRYPTED = { type: "Unencrypted" } satisfies Confidentiality;
+
+describe("deployments", () => {
+  test("exports the immutable package IDs", () => {
+    expect(oriPackageId("mainnet")).toBe(
+      "0xe9b70375353ec0ed99e9ef2a4e51e70087db042ceba4631430cc2d7217b7fdcf",
+    );
+    expect(oriPackageId("testnet")).toBe(
+      "0x3013ca910b7571a5d19b215cce1037ea0061ba844831ea7013ce1b37303ec0ca",
+    );
+    expect(Object.keys(ORI_PACKAGE_IDS).sort()).toEqual(["mainnet", "testnet"]);
+  });
+});
 
 describe("public types", () => {
   test("represent only the three concrete Walrus reference kinds", () => {
@@ -104,22 +118,23 @@ describe("quilt patch ID encoding", () => {
   );
 });
 
-describe("parseWalrusConfidentiality", () => {
+describe("parseConfidentiality", () => {
   test("parses named Move JSON and normalized variants", () => {
-    expect(parseWalrusConfidentiality({ "@variant": "Unencrypted" })).toEqual(UNENCRYPTED);
-    expect(parseWalrusConfidentiality({ type: "Unencrypted" })).toEqual(UNENCRYPTED);
-    expect(parseWalrusConfidentiality({ "@variant": "Encrypted", dek: [0, 0xab, 0xff] })).toEqual({
+    expect(parseConfidentiality({ "@variant": "Unencrypted" })).toEqual(UNENCRYPTED);
+    expect(parseConfidentiality({ type: "Unencrypted" })).toEqual(UNENCRYPTED);
+    expect(
+      parseConfidentiality({ "@variant": "Encrypted", sealed_dek: [0, 0xab, 0xff] }),
+    ).toEqual({
       type: "Encrypted",
-      dek: "00abff",
+      sealedDek: "00abff",
     });
-    expect(parseWalrusConfidentiality({ type: "Encrypted", dek: "0X00ABFF" })).toEqual({
+    expect(parseConfidentiality({ type: "Encrypted", sealedDek: "0X00ABFF" })).toEqual({
       type: "Encrypted",
-      dek: "00abff",
+      sealedDek: "00abff",
     });
-    expect(parseWalrusConfidentiality({ type: "Encrypted", dek: new Uint8Array([1, 2]) })).toEqual({
-      type: "Encrypted",
-      dek: "0102",
-    });
+    expect(
+      parseConfidentiality({ type: "Encrypted", sealedDek: new Uint8Array([1, 2]) }),
+    ).toEqual({ type: "Encrypted", sealedDek: "0102" });
   });
 
   test.each([
@@ -127,18 +142,19 @@ describe("parseWalrusConfidentiality", () => {
     {},
     { "@variant": "Unknown" },
     { type: "Encrypted" },
-    { type: "Encrypted", dek: "" },
-    { type: "Encrypted", dek: "0x" },
-    { type: "Encrypted", dek: "abc" },
-    { type: "Encrypted", dek: "zz" },
-    { type: "Encrypted", dek: [-1] },
-    { type: "Encrypted", dek: [256] },
-    { type: "Encrypted", dek: new Array(1) },
-    { type: "Unencrypted", dek: "01" },
+    { type: "Encrypted", sealedDek: "" },
+    { type: "Encrypted", sealedDek: "0x" },
+    { type: "Encrypted", sealedDek: "abc" },
+    { type: "Encrypted", sealedDek: "zz" },
+    { type: "Encrypted", sealedDek: [-1] },
+    { type: "Encrypted", sealedDek: [256] },
+    { type: "Encrypted", sealedDek: new Array(1) },
+    { type: "Encrypted", dek: "01" },
+    { type: "Unencrypted", sealedDek: "01" },
     { type: "Unencrypted", extra: true },
     { "@variant": "Unencrypted", type: "Unencrypted" },
   ])("strictly rejects invalid confidentiality %#", (value) => {
-    expect(() => parseWalrusConfidentiality(value)).toThrow();
+    expect(() => parseConfidentiality(value)).toThrow();
   });
 });
 
@@ -147,9 +163,12 @@ describe("parseWalrusBlob", () => {
     expect(
       parseWalrusBlob({
         blob_id: REAL_BLOB_U256,
-        confidentiality: { "@variant": "Encrypted", dek: [0xde, 0xad] },
+        confidentiality: { "@variant": "Encrypted", sealed_dek: [0xde, 0xad] },
       }),
-    ).toEqual({ blobId: REAL_BLOB_U256, confidentiality: { type: "Encrypted", dek: "dead" } });
+    ).toEqual({
+      blobId: REAL_BLOB_U256,
+      confidentiality: { type: "Encrypted", sealedDek: "dead" },
+    });
     expect(parseWalrusBlob({ blobId: "42", confidentiality: UNENCRYPTED })).toEqual({
       blobId: "42",
       confidentiality: UNENCRYPTED,
@@ -211,11 +230,11 @@ describe("parseWalrusQuiltPatch", () => {
     expect(
       parseWalrusQuiltPatch({
         quiltPatchId: REAL_PATCH_ID,
-        confidentiality: { type: "Encrypted", dek: "ABCD" },
+        confidentiality: { type: "Encrypted", sealedDek: "ABCD" },
       }),
     ).toEqual({
       quiltPatchId: REAL_PATCH_ID,
-      confidentiality: { type: "Encrypted", dek: "abcd" },
+      confidentiality: { type: "Encrypted", sealedDek: "abcd" },
     });
   });
 

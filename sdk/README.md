@@ -10,19 +10,35 @@ npm install @unconfirmed/ori @mysten/sui
 
 `@mysten/sui` is a peer dependency.
 
+## Immutable package IDs
+
+```ts
+import { ORI_PACKAGE_IDS, oriPackageId } from "@unconfirmed/ori";
+
+const mainnetPackageId = ORI_PACKAGE_IDS.mainnet;
+const testnetPackageId = oriPackageId("testnet");
+```
+
+The SDK embeds the immutable `ori::data` deployments:
+
+| Network | Package ID |
+| --- | --- |
+| Mainnet | `0xe9b70375353ec0ed99e9ef2a4e51e70087db042ceba4631430cc2d7217b7fdcf` |
+| Testnet | `0x3013ca910b7571a5d19b215cce1037ea0061ba844831ea7013ce1b37303ec0ca` |
+
 ## Concrete reference types
 
 Ori models the three distinct Walrus concepts separately:
 
 ```ts
 import type {
+  Confidentiality,
   WalrusBlob,
-  WalrusConfidentiality,
   WalrusQuilt,
   WalrusQuiltPatch,
 } from "@unconfirmed/ori";
 
-const confidentiality: WalrusConfidentiality = { type: "Unencrypted" };
+const confidentiality: Confidentiality = { type: "Unencrypted" };
 
 const blob: WalrusBlob = {
   blobId: "42", // decimal u256
@@ -42,9 +58,9 @@ const patch: WalrusQuiltPatch = {
 Encrypted references carry a Seal-encrypted data-encryption key as normalized lowercase, unprefixed hex:
 
 ```ts
-const encrypted: WalrusConfidentiality = {
+const encrypted: Confidentiality = {
   type: "Encrypted",
-  dek: "deadbeef",
+  sealedDek: "deadbeef",
 };
 ```
 
@@ -54,8 +70,8 @@ The parsers accept either named Move JSON fields or an already-normalized camelC
 
 ```ts
 import {
+  parseConfidentiality,
   parseWalrusBlob,
-  parseWalrusConfidentiality,
   parseWalrusQuilt,
   parseWalrusQuiltPatch,
 } from "@unconfirmed/ori";
@@ -69,11 +85,11 @@ const quilt = parseWalrusQuilt({ quilt_id: "42" });
 
 const patch = parseWalrusQuiltPatch({
   quilt_patch_id: [0x51, 0x02, 0xff],
-  confidentiality: { "@variant": "Encrypted", dek: "0xDEADBEEF" },
+  confidentiality: { "@variant": "Encrypted", sealed_dek: "0xDEADBEEF" },
 });
 ```
 
-Parsers are intentionally strict. They reject positional fields, unknown fields, missing confidentiality, malformed IDs, invalid byte values, and empty encrypted DEKs. Raw Move `vector<u8>` values may be a `number[]`, `Uint8Array`, or even-length hex string. Patch IDs normalize to unpadded base64url; DEKs normalize to lowercase unprefixed hex.
+Parsers are intentionally strict. They reject positional fields, unknown fields, missing confidentiality, malformed IDs, invalid byte values, and empty sealed DEKs. Raw Move `vector<u8>` values may be a `number[]`, `Uint8Array`, or even-length hex string. Patch IDs normalize to unpadded base64url; sealed DEKs normalize to lowercase unprefixed hex.
 
 ## Build aggregator URLs
 
@@ -112,6 +128,10 @@ const decimal = b64UrlToU256(blobId);
 const patchId = quiltPatchIdFromBytes(rawPatchId);
 const rawPatchIdAgain = quiltPatchIdToBytes(patchId);
 ```
+
+## Breaking changes in 0.3.0
+
+Version 0.3.0 follows the final immutable `ori::data` Move API and embeds its Mainnet and Testnet package IDs. `WalrusConfidentiality` is now `Confidentiality`, `parseWalrusConfidentiality` is now `parseConfidentiality`, and the encrypted field is now the explicit `sealedDek` (`sealed_dek` in Move JSON).
 
 ## Breaking changes in 0.2.0
 

@@ -1,6 +1,6 @@
 {
   "name": "@unconfirmed/ori",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Concrete TypeScript types, parsers, and URL helpers for Ori Walrus references on Sui.",
   "license": "MIT",
   "type": "module",

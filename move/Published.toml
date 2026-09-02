@@ -4,16 +4,16 @@
 
 [published.mainnet]
 chain-id = "4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S"
-published-at = "0x6b48ac981da192c9f7308cd8a781dffde9790288c5bfb6b935b94cf8fa1f043f"
-original-id = "0x6b48ac981da192c9f7308cd8a781dffde9790288c5bfb6b935b94cf8fa1f043f"
+published-at = "0xe9b70375353ec0ed99e9ef2a4e51e70087db042ceba4631430cc2d7217b7fdcf"
+original-id = "0xe9b70375353ec0ed99e9ef2a4e51e70087db042ceba4631430cc2d7217b7fdcf"
 version = 1
 toolchain-version = "1.78.1"
 build-config = { flavor = "sui", edition = "2024" }
 
 [published.testnet]
 chain-id = "69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD"
-published-at = "0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a"
-original-id = "0xf35cf353a62cef01084b51a9cf3da4c64c8724685ad1862f2f8284b71bd26c1a"
+published-at = "0x3013ca910b7571a5d19b215cce1037ea0061ba844831ea7013ce1b37303ec0ca"
+original-id = "0x3013ca910b7571a5d19b215cce1037ea0061ba844831ea7013ce1b37303ec0ca"
 version = 1
 toolchain-version = "1.78.1"
 build-config = { flavor = "sui", edition = "2024" }

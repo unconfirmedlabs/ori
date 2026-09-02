@@ -1,20 +1,20 @@
-module ori::walrus_data;
+module ori::data;
 
 // === Types ===
 
-/// Confidentiality metadata for a Walrus blob or quilt patch.
-public enum WalrusConfidentiality has copy, drop, store {
+/// Confidentiality metadata for referenced data.
+public enum Confidentiality has copy, drop, store {
     /// The referenced data is stored in the clear.
     Unencrypted,
-    /// The referenced data is encrypted. `dek` is its Seal-sealed
+    /// The referenced data is encrypted. `sealed_dek` is its Seal-sealed
     /// data-encryption key, not the plaintext key.
-    Encrypted { dek: vector<u8> },
+    Encrypted { sealed_dek: vector<u8> },
 }
 
 /// A standalone Walrus blob.
 public struct WalrusBlob has copy, drop, store {
     blob_id: u256,
-    confidentiality: WalrusConfidentiality,
+    confidentiality: Confidentiality,
 }
 
 /// A complete Walrus quilt.
@@ -27,13 +27,13 @@ public struct WalrusQuilt has copy, drop, store {
 /// The patch ID is opaque and is preserved exactly as supplied.
 public struct WalrusQuiltPatch has copy, drop, store {
     quilt_patch_id: vector<u8>,
-    confidentiality: WalrusConfidentiality,
+    confidentiality: Confidentiality,
 }
 
 // === Errors ===
 
 #[error]
-const EEmptyDek: vector<u8> = b"An encrypted Walrus reference must have a non-empty sealed DEK";
+const EEmptySealedDek: vector<u8> = b"Encrypted data must have a non-empty sealed DEK";
 
 #[error]
 const EEmptyQuiltPatchId: vector<u8> = b"A Walrus quilt patch ID must not be empty";
@@ -43,20 +43,30 @@ const ENotEncrypted: vector<u8> = b"The Walrus reference is not encrypted";
 
 // === Constructors ===
 
+/// Creates unencrypted confidentiality metadata.
+public fun new_unencrypted(): Confidentiality {
+    Confidentiality::Unencrypted
+}
+
+/// Creates encrypted confidentiality metadata with a Seal-sealed data-encryption key.
+public fun new_encrypted(sealed_dek: vector<u8>): Confidentiality {
+    assert!(!sealed_dek.is_empty(), EEmptySealedDek);
+    Confidentiality::Encrypted { sealed_dek }
+}
+
 /// Creates a reference to an unencrypted standalone Walrus blob.
 public fun new_blob(blob_id: u256): WalrusBlob {
     WalrusBlob {
         blob_id,
-        confidentiality: WalrusConfidentiality::Unencrypted,
+        confidentiality: new_unencrypted(),
     }
 }
 
 /// Creates a reference to an encrypted standalone Walrus blob.
-public fun new_encrypted_blob(blob_id: u256, dek: vector<u8>): WalrusBlob {
-    assert!(!dek.is_empty(), EEmptyDek);
+public fun new_encrypted_blob(blob_id: u256, sealed_dek: vector<u8>): WalrusBlob {
     WalrusBlob {
         blob_id,
-        confidentiality: WalrusConfidentiality::Encrypted { dek },
+        confidentiality: new_encrypted(sealed_dek),
     }
 }
 
@@ -70,20 +80,19 @@ public fun new_quilt_patch(quilt_patch_id: vector<u8>): WalrusQuiltPatch {
     assert!(!quilt_patch_id.is_empty(), EEmptyQuiltPatchId);
     WalrusQuiltPatch {
         quilt_patch_id,
-        confidentiality: WalrusConfidentiality::Unencrypted,
+        confidentiality: new_unencrypted(),
     }
 }
 
 /// Creates a reference to an encrypted patch within a Walrus quilt.
 public fun new_encrypted_quilt_patch(
     quilt_patch_id: vector<u8>,
-    dek: vector<u8>,
+    sealed_dek: vector<u8>,
 ): WalrusQuiltPatch {
     assert!(!quilt_patch_id.is_empty(), EEmptyQuiltPatchId);
-    assert!(!dek.is_empty(), EEmptyDek);
     WalrusQuiltPatch {
         quilt_patch_id,
-        confidentiality: WalrusConfidentiality::Encrypted { dek },
+        confidentiality: new_encrypted(sealed_dek),
     }
 }
 
@@ -95,7 +104,7 @@ public fun blob_id(self: &WalrusBlob): u256 {
 }
 
 /// Returns the standalone blob's confidentiality metadata.
-public fun blob_confidentiality(self: &WalrusBlob): &WalrusConfidentiality {
+public fun blob_confidentiality(self: &WalrusBlob): &Confidentiality {
     &self.confidentiality
 }
 
@@ -112,24 +121,24 @@ public fun quilt_patch_id(self: &WalrusQuiltPatch): &vector<u8> {
 /// Returns the quilt patch's confidentiality metadata.
 public fun quilt_patch_confidentiality(
     self: &WalrusQuiltPatch,
-): &WalrusConfidentiality {
+): &Confidentiality {
     &self.confidentiality
 }
 
 /// Returns whether the confidentiality metadata marks the data as encrypted.
-public fun is_encrypted(self: &WalrusConfidentiality): bool {
+public fun is_encrypted(self: &Confidentiality): bool {
     match (self) {
-        WalrusConfidentiality::Unencrypted => false,
-        WalrusConfidentiality::Encrypted { .. } => true,
+        Confidentiality::Unencrypted => false,
+        Confidentiality::Encrypted { .. } => true,
     }
 }
 
 /// Returns the Seal-sealed data-encryption key.
 ///
 /// Aborts when the data is unencrypted.
-public fun sealed_dek(self: &WalrusConfidentiality): &vector<u8> {
+public fun sealed_dek(self: &Confidentiality): &vector<u8> {
     match (self) {
-        WalrusConfidentiality::Encrypted { dek } => dek,
-        WalrusConfidentiality::Unencrypted => abort ENotEncrypted,
+        Confidentiality::Encrypted { sealed_dek } => sealed_dek,
+        Confidentiality::Unencrypted => abort ENotEncrypted,
     }
 }

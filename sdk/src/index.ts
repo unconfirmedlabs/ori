@@ -1,10 +1,12 @@
 // Copyright (c) Unconfirmed Labs, Inc.
 // SPDX-License-Identifier: MIT
 
-export type { WalrusBlob, WalrusConfidentiality, WalrusQuilt, WalrusQuiltPatch } from "./types.js";
+export type { Confidentiality, WalrusBlob, WalrusQuilt, WalrusQuiltPatch } from "./types.js";
+export type { OriNetwork } from "./deployments.js";
+export { ORI_PACKAGE_IDS, oriPackageId } from "./deployments.js";
 export {
+  parseConfidentiality,
   parseWalrusBlob,
-  parseWalrusConfidentiality,
   parseWalrusQuilt,
   parseWalrusQuiltPatch,
 } from "./parse.js";

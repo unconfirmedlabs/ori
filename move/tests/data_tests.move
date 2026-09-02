@@ -1,17 +1,39 @@
 #[test_only]
-module ori::walrus_data_tests;
+module ori::data_tests;
 
-use ori::walrus_data;
+use ori::data;
 use std::unit_test::assert_eq;
 
 const MAX_U256: u256 =
     0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
+// === Confidentiality Tests ===
+
+#[test]
+fun unencrypted_confidentiality_is_unencrypted() {
+    let confidentiality = data::new_unencrypted();
+
+    assert!(!confidentiality.is_encrypted());
+}
+
+#[test]
+fun encrypted_confidentiality_preserves_sealed_dek() {
+    let confidentiality = data::new_encrypted(b"sealed-dek");
+
+    assert!(confidentiality.is_encrypted());
+    assert_eq!(*confidentiality.sealed_dek(), b"sealed-dek");
+}
+
+#[test, expected_failure(abort_code = data::EEmptySealedDek, location = data)]
+fun encrypted_confidentiality_rejects_empty_sealed_dek() {
+    data::new_encrypted(b"");
+}
+
 // === Blob Tests ===
 
 #[test]
 fun plain_blob_preserves_id_and_is_unencrypted() {
-    let blob = walrus_data::new_blob(42);
+    let blob = data::new_blob(42);
 
     assert_eq!(blob.blob_id(), 42);
     assert!(!blob.blob_confidentiality().is_encrypted());
@@ -19,21 +41,21 @@ fun plain_blob_preserves_id_and_is_unencrypted() {
 
 #[test]
 fun blob_preserves_zero_id() {
-    let blob = walrus_data::new_blob(0);
+    let blob = data::new_blob(0);
 
     assert_eq!(blob.blob_id(), 0);
 }
 
 #[test]
 fun blob_preserves_max_id() {
-    let blob = walrus_data::new_blob(MAX_U256);
+    let blob = data::new_blob(MAX_U256);
 
     assert_eq!(blob.blob_id(), MAX_U256);
 }
 
 #[test]
 fun encrypted_blob_preserves_id_and_dek() {
-    let blob = walrus_data::new_encrypted_blob(7, b"sealed-dek");
+    let blob = data::new_encrypted_blob(7, b"sealed-dek");
     let confidentiality = blob.blob_confidentiality();
 
     assert_eq!(blob.blob_id(), 7);
@@ -41,28 +63,28 @@ fun encrypted_blob_preserves_id_and_dek() {
     assert_eq!(*confidentiality.sealed_dek(), b"sealed-dek");
 }
 
-#[test, expected_failure(abort_code = walrus_data::EEmptyDek, location = walrus_data)]
+#[test, expected_failure(abort_code = data::EEmptySealedDek, location = data)]
 fun encrypted_blob_rejects_empty_dek() {
-    walrus_data::new_encrypted_blob(7, b"");
+    data::new_encrypted_blob(7, b"");
 }
 
-#[test, expected_failure(abort_code = walrus_data::ENotEncrypted, location = walrus_data)]
+#[test, expected_failure(abort_code = data::ENotEncrypted, location = data)]
 fun plain_blob_has_no_sealed_dek() {
-    walrus_data::new_blob(7).blob_confidentiality().sealed_dek();
+    data::new_blob(7).blob_confidentiality().sealed_dek();
 }
 
 // === Quilt Tests ===
 
 #[test]
 fun quilt_preserves_zero_id() {
-    let quilt = walrus_data::new_quilt(0);
+    let quilt = data::new_quilt(0);
 
     assert_eq!(quilt.quilt_id(), 0);
 }
 
 #[test]
 fun quilt_preserves_max_id() {
-    let quilt = walrus_data::new_quilt(MAX_U256);
+    let quilt = data::new_quilt(MAX_U256);
 
     assert_eq!(quilt.quilt_id(), MAX_U256);
 }
@@ -72,15 +94,15 @@ fun quilt_preserves_max_id() {
 #[test]
 fun plain_quilt_patch_preserves_arbitrary_bytes() {
     let patch_id = vector[0xff, 0x00, 0x42, 0x80, 0x01];
-    let patch = walrus_data::new_quilt_patch(patch_id);
+    let patch = data::new_quilt_patch(patch_id);
 
     assert_eq!(*patch.quilt_patch_id(), vector[0xff, 0x00, 0x42, 0x80, 0x01]);
     assert!(!patch.quilt_patch_confidentiality().is_encrypted());
 }
 
-#[test, expected_failure(abort_code = walrus_data::EEmptyQuiltPatchId, location = walrus_data)]
+#[test, expected_failure(abort_code = data::EEmptyQuiltPatchId, location = data)]
 fun plain_quilt_patch_rejects_empty_id() {
-    walrus_data::new_quilt_patch(vector[]);
+    data::new_quilt_patch(vector[]);
 }
 
 #[test]
@@ -92,7 +114,7 @@ fun plain_quilt_patch_preserves_real_37_byte_id() {
         0x62, 0xde, 0x36, 0x0c, 0x0b, 0xcf, 0x4b, 0x1a,
         0x01, 0x00, 0x00, 0x84, 0x00,
     ];
-    let patch = walrus_data::new_quilt_patch(patch_id);
+    let patch = data::new_quilt_patch(patch_id);
 
     assert_eq!(patch.quilt_patch_id().length(), 37);
     assert_eq!(
@@ -109,7 +131,7 @@ fun plain_quilt_patch_preserves_real_37_byte_id() {
 
 #[test]
 fun encrypted_quilt_patch_preserves_id_and_dek() {
-    let patch = walrus_data::new_encrypted_quilt_patch(
+    let patch = data::new_encrypted_quilt_patch(
         vector[0x01, 0x02, 0x03],
         b"sealed-patch-dek",
     );
@@ -120,19 +142,19 @@ fun encrypted_quilt_patch_preserves_id_and_dek() {
     assert_eq!(*confidentiality.sealed_dek(), b"sealed-patch-dek");
 }
 
-#[test, expected_failure(abort_code = walrus_data::EEmptyQuiltPatchId, location = walrus_data)]
+#[test, expected_failure(abort_code = data::EEmptyQuiltPatchId, location = data)]
 fun encrypted_quilt_patch_rejects_empty_id() {
-    walrus_data::new_encrypted_quilt_patch(vector[], b"sealed-dek");
+    data::new_encrypted_quilt_patch(vector[], b"sealed-dek");
 }
 
-#[test, expected_failure(abort_code = walrus_data::EEmptyDek, location = walrus_data)]
+#[test, expected_failure(abort_code = data::EEmptySealedDek, location = data)]
 fun encrypted_quilt_patch_rejects_empty_dek() {
-    walrus_data::new_encrypted_quilt_patch(vector[0x01], b"");
+    data::new_encrypted_quilt_patch(vector[0x01], b"");
 }
 
-#[test, expected_failure(abort_code = walrus_data::ENotEncrypted, location = walrus_data)]
+#[test, expected_failure(abort_code = data::ENotEncrypted, location = data)]
 fun plain_quilt_patch_has_no_sealed_dek() {
-    walrus_data::new_quilt_patch(vector[0x01])
+    data::new_quilt_patch(vector[0x01])
         .quilt_patch_confidentiality()
         .sealed_dek();
 }
