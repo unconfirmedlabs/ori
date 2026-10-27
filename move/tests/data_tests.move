@@ -26,7 +26,6 @@ fun blob_preserves_encrypted_confidentiality() {
         confidentiality::new_encrypted(b"sealed-dek"),
     );
     let value = blob.blob_confidentiality();
-
     assert_eq!(blob.blob_id(), 7);
     assert!(value.is_encrypted());
     assert_eq!(*value.sealed_dek(), b"sealed-dek");
@@ -36,7 +35,6 @@ fun blob_preserves_encrypted_confidentiality() {
 fun blob_preserves_boundary_ids() {
     let zero = data::new_blob(0, confidentiality::new_unencrypted());
     let max = data::new_blob(MAX_U256, confidentiality::new_unencrypted());
-
     assert_eq!(zero.blob_id(), 0);
     assert_eq!(max.blob_id(), MAX_U256);
 }
@@ -47,7 +45,6 @@ fun blob_preserves_boundary_ids() {
 fun quilt_preserves_boundary_ids() {
     let zero = data::new_quilt(0);
     let max = data::new_quilt(MAX_U256);
-
     assert_eq!(zero.quilt_id(), 0);
     assert_eq!(max.quilt_id(), MAX_U256);
 }
@@ -74,7 +71,6 @@ fun quilt_patch_preserves_encrypted_confidentiality() {
         confidentiality::new_encrypted(b"sealed-patch-dek"),
     );
     let value = patch.quilt_patch_confidentiality();
-
     assert_eq!(*patch.quilt_patch_id(), vector[0x01, 0x02, 0x03]);
     assert!(value.is_encrypted());
     assert_eq!(*value.sealed_dek(), b"sealed-patch-dek");
