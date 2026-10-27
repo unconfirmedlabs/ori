@@ -7,14 +7,12 @@ use std::unit_test::assert_eq;
 #[test]
 fun unencrypted_value_is_not_encrypted() {
     let value = confidentiality::new_unencrypted();
-
     assert!(!value.is_encrypted());
 }
 
 #[test]
 fun encrypted_value_preserves_sealed_dek() {
     let value = confidentiality::new_encrypted(b"sealed-dek");
-
     assert!(value.is_encrypted());
     assert_eq!(*value.sealed_dek(), b"sealed-dek");
 }

@@ -15,7 +15,6 @@ fun blob_preserves_unencrypted_confidentiality() {
         42,
         confidentiality::new_unencrypted(),
     );
-
     assert_eq!(blob.blob_id(), 42);
     assert!(!blob.blob_confidentiality().is_encrypted());
 }
@@ -61,7 +60,6 @@ fun quilt_patch_preserves_unencrypted_confidentiality() {
         vector[0xff, 0x00, 0x42, 0x80, 0x01],
         confidentiality::new_unencrypted(),
     );
-
     assert_eq!(
         *patch.quilt_patch_id(),
         vector[0xff, 0x00, 0x42, 0x80, 0x01],
@@ -95,7 +93,6 @@ fun quilt_patch_preserves_real_37_byte_id() {
         patch_id,
         confidentiality::new_unencrypted(),
     );
-
     assert_eq!(patch.quilt_patch_id().length(), 37);
 }
 
