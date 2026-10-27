@@ -18,7 +18,6 @@ public enum Confidentiality has copy, drop, store {
 
 #[error]
 const EEmptySealedDek: vector<u8> = b"Encrypted data must have a non-empty sealed DEK";
-
 #[error]
 const ENotEncrypted: vector<u8> = b"The data is not encrypted";
 
